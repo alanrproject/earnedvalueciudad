@@ -17,40 +17,91 @@ def main():
     # Ensure 'Código contable' is a string and strip spaces
     df['Código contable'] = df['Código contable'].astype(str).str.strip()
     
+    #Limpiar strings 'Descripción' y 'Detalle'
+    df['Descripción'] = df['Descripción'].str.replace(r'Cuota.*', 'Cuota', regex=True)
+    df['Detalle'] = df['Detalle'].str.replace(r'Cuota.*', 'Cuota', regex=True)
+
     # Filter the DataFrame based on the 'Código contable' column
     df_filtered = df[df['Código contable'].isin(cost_dict)]
     
     # Group by 'Centro de costo'
     grouped = df_filtered.groupby('Centro de costo')
     
+    # List to store the indices of rows to drop
+    rows_to_drop = []
+    
     # Iterate over each group
-    for name, group in grouped:
-        print(f"Processing Centro de costo: {name}")
+    for centro_costo_name, centro_costo_group in grouped:
+        print(f"Processing Centro de costo: {centro_costo_name}")
         
-        # Identify rows where 'Código contable' is '61350503.0' and 'Crédito' is not 0
-        credito_rows = group[(group['Código contable'] == '61350503.0') & (group['Crédito'] != 0)]
+        # Group by 'Nombre tercero' within each 'Centro de costo' group
+        tercero_grouped = centro_costo_group.groupby('Nombre tercero')
         
-        if not credito_rows.empty:
-            print(f"Found 'Crédito' rows in Centro de costo {name} with 'Código contable' 61350503.0:")
-            print(credito_rows)
-        
-            # Process each 'Crédito' row
-            for index, credito_row in credito_rows.iterrows():
-                credito_value = credito_row['Crédito']
-                
-                # Find 'Débito' rows with value equal or bigger than the 'Crédito' value
-                debito_rows = group[(group['Débito'] >= credito_value) & (group['Débito'] != 0)]
-                
-                if not debito_rows.empty:
-                    print(f"Found matching 'Débito' rows in Centro de costo {name}:")
-                    print(debito_rows)
+        for tercero_name, tercero_group in tercero_grouped:
+            print(f"Processing Nombre tercero: {tercero_name}")
+            
+            # Identify rows where 'Código contable' is '61350503.0' and 'Crédito' is not 0
+            credito_rows = tercero_group[(tercero_group['Código contable'] == '61350503.0') & (tercero_group['Crédito'] != 0)]
+            
+            if not credito_rows.empty:
+                print(f"Found 'Crédito' rows in Centro de costo {centro_costo_name} and Nombre tercero {tercero_name} with 'Código contable' 61350503.0:")
+                print(credito_rows)
+            
+                # Process each 'Crédito' row
+                for index, credito_row in credito_rows.iterrows():
+                    credito_value = credito_row['Crédito']
                     
-                    # Subtract the 'Crédito' value from the first matching 'Débito' row
-                    debito_index = debito_rows.index[0]
-                    df_filtered.at[debito_index, 'Débito'] -= credito_value
-                    # Set the 'Crédito' value to 0 as it has been fully accounted for
-                    df_filtered.at[index, 'Crédito'] = 0
+                    # Find 'Débito' rows with value equal or bigger than the 'Crédito' value
+                    debito_rows = tercero_group[(tercero_group['Débito'] >= credito_value) & (tercero_group['Débito'] != 0)]
+                    
+                    if not debito_rows.empty:
+                        print(f"Found matching 'Débito' rows in Centro de costo {centro_costo_name} and Nombre tercero {tercero_name}:")
+                        print(debito_rows)
+                        
+                        # Subtract the 'Crédito' value from the first matching 'Débito' row
+                        debito_index = debito_rows.index[0]
+                        df_filtered.at[debito_index, 'Débito'] -= credito_value
+                        # Set the 'Crédito' value to 0 as it has been fully accounted for
+                        df_filtered.at[index, 'Crédito'] = 0
 
+            # Identify rows where 'Código contable' is '22050501.0' and 'Crédito' is not 0
+            credito_22050501_rows = tercero_group[(tercero_group['Código contable'] == '22050501.0') & (tercero_group['Crédito'] != 0)]
+            
+            if not credito_22050501_rows.empty:
+                print(f"Found 'Crédito' rows in Centro de costo {centro_costo_name} and Nombre tercero {tercero_name} with 'Código contable' 22050501.0:")
+                print(credito_22050501_rows)
+                
+                # Process each 'Crédito' row for '22050501.0'
+                for index, credito_row in credito_22050501_rows.iterrows():
+                    credito_value = credito_row['Crédito']
+                    credito_detalle = credito_row['Detalle']
+                    
+                    # Find 'Débito' rows with value equal to the 'Crédito' value and matching 'Detalle' or 'Descripción'
+                    debito_rows = tercero_group[((tercero_group['Débito'] == credito_value) & (tercero_group['Detalle'] == credito_detalle)) | 
+                                                ((tercero_group['Débito'] == credito_value) & (tercero_group['Descripción'] == credito_detalle))]
+                    
+                    if not debito_rows.empty:
+                        print(f"Found matching 'Débito' rows for '22050501.0' in Centro de costo {centro_costo_name} and Nombre tercero {tercero_name}:")
+                        print(debito_rows)
+                        
+                        # If a match is found, add both rows to the drop list
+                        debito_index = debito_rows.index[0]
+                        rows_to_drop.append(index)
+                        rows_to_drop.append(debito_index)
+            
+            # Identify rows where 'Código contable' is '22050501.0' and 'Débito' is not 0
+            debito_22050501_rows = tercero_group[(tercero_group['Código contable'] == '22050501.0') & (tercero_group['Débito'] != 0)]
+            
+            if not debito_22050501_rows.empty:
+                print(f"Found 'Débito' rows in Centro de costo {centro_costo_name} and Nombre tercero {tercero_name} with 'Código contable' 22050501.0:")
+                print(debito_22050501_rows)
+                
+                # Add these rows to the drop list
+                rows_to_drop.extend(debito_22050501_rows.index)
+
+    # Drop the identified rows
+    df_filtered.drop(rows_to_drop, inplace=True)
+    
     # Reset the index of the filtered DataFrame
     df_filtered.reset_index(drop=True, inplace=True)
     
