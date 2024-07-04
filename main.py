@@ -9,7 +9,7 @@ cost_dict = {f'{code}.0' for code in [
 
 def main():
     # Read the Excel file
-    df = pd.read_excel('Comprobantes detallados.xlsx', sheet_name='Sheet1', skiprows=7)
+    df = pd.read_excel('raw/Comprobantes detallados.xlsx', sheet_name='Sheet1', skiprows=7)
     
     # Drop rows where 'Sucursal' column is NaN
     df = df.dropna(subset=['Sucursal'])
@@ -55,7 +55,7 @@ def main():
     df_filtered.reset_index(drop=True, inplace=True)
     
     # Write the updated DataFrame to a new Excel file
-    df_filtered.to_excel('cost_db.xlsx', sheet_name='cost', engine='xlsxwriter')  # Specify the engine
+    df_filtered.to_excel('processed/cost_db.xlsx', sheet_name='cost', engine='xlsxwriter')  # Specify the engine
     
     # Print the updated DataFrame
     print("Updated DataFrame:")
